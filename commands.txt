@@ -1,0 +1,48 @@
+# These models were trained with the following commands.
+
+# Start with the pre-coverage trained model from
+# https://github.com/abisee/pointer-generator, from file
+# pretrained_model_tf1.2.1.zip
+# Also follow the instructions to get the CNN/DailyMail dataset.
+
+# You may not have to train in stages like we did to get all the intermediate model variations,
+# although we did find it better to enable --coverage only after training some with
+# the recoder.
+
+# First create recoder variables with --convert_to_recoder_model:
+python3 run_summarization.py --mode=train --data_path=../data/chunked/train_* --vocab_path=../data/vocab --log_root=../log --exp_name=<dir>/ --max_enc_steps=400 --max_dec_steps=70 --batch_size=4 --lr=0.15 --trainable_embedding=False --convert_to_recoder_model
+
+# Then begin training recoder:
+python3 run_summarization.py --mode=train --data_path=../data/chunked/train_* --vocab_path=../data/vocab --log_root=../log --exp_name=<dir>/ --max_enc_steps=400 --max_dec_steps=70 --batch_size=4 --lr=0.15 --trainable_embedding=False
+# until iter 254657.
+
+# At iter 254657, recreate Adagrad variables for the embedding training:
+python3 run_summarization.py --mode=train --data_path=../data/chunked/train_* --vocab_path=../data/vocab --log_root=../log --exp_name=<dir>/ --max_enc_steps=400 --max_dec_steps=70 --batch_size=4 --lr=0.15 --trainable_embedding=True --reset_adagrad
+
+-------------------------------------------------------------
+For the non-coverage model pgen+recoder:
+
+# From iter 254657, continue training with 400/100.
+python3 run_summarization.py --mode=train --data_path=../data/chunked/train_* --vocab_path=../data/vocab --log_root=../log --exp_name=<dir>/ --max_enc_steps=400 --max_dec_steps=100 --batch_size=4 --lr=0.01 --trainable_embedding=True
+# until iter 275690, then len_loss_wt=0.1:
+python3 run_summarization.py --mode=train --data_path=../data/chunked/train_* --vocab_path=../data/vocab --log_root=../log --exp_name=<dir>/ --max_enc_steps=400 --max_dec_steps=100 --batch_size=4 --lr=0.01 --trainable_embedding=False --len_loss_wt=0.1
+# until iter 303592.
+
+
+-------------------------------------------------------------
+# For the coverage model pgen_cov+recoder:
+
+# Enable coverage with --coverage_to_coverage_model conversion:
+python3 run_summarization.py --mode=train --data_path=../data/chunked/train_* --vocab_path=../data/vocab --log_root=../log --exp_name=<dir>/ --max_enc_steps=400 --max_dec_steps=100 --batch_size=4 --lr=0.01 --coverage --cov_loss_wt=0 --convert_to_coverage_model
+# and then from iter 254657:
+python3 run_summarization.py --mode=train --data_path=../data/chunked/train_* --vocab_path=../data/vocab --log_root=../log --exp_name=<dir>/ --max_enc_steps=400 --max_dec_steps=100 --batch_size=4 --lr=0.01 --coverage --cov_loss_wt=0
+# until iter 268390.
+# At iter 268390, same cmd but add --cov_loss_wt=1 until iter 272895.
+# At iter 272895, same cmd but also add --len_loss_wt=0.1 until iter 279586.
+
+-------------------------------------------------------------
+
+# To decode,
+python3 run_summarization.py --mode=decode --data_path=../data/chunked/val_* --vocab_path=../data/vocab --log_root=../log/ --exp_name=<dir> --max_enc_steps=400 --max_dec_steps=120 --single_pass --decode_limit=20000
+# add --coverage for pgen_cov+recoder
+# use --data_path=../data/chunked/test_* for the test set.
